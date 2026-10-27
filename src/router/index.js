@@ -1,114 +1,70 @@
-
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import LoginView from '../views/UsernameSignInView.vue'
-import HomeView from '../views/DashboardView.vue'
-import AntraegeView from '../views/RequestsView.vue'
-import KontaktView from '../views/ContactView.vue'
-import AnweisungenView from '../views/DocumentsView.vue'
-import ProfileView from '../views/ProfileSettingsView.vue'
-import GehaltsAbrechnungView from '../views/PayslipsView.vue'
-import EquipmentView from '../views/EquipmentView.vue'
-
+import DashboardView from '../views/DashboardView.vue'
+import RequestsView from '../views/RequestsView.vue'
+import EquipmentView from '../views/EquipmentDataView.vue'
+import DocumentsView from '../views/DocumentsView.vue'
+import ContactView from '../views/ContactView.vue'
+import PayslipsView from '../views/PayslipsDataView.vue'
+import ProfileSettingsView from '../views/ProfileSettingsView.vue'
+import AdminView from '../views/AdminView.vue'
+import PlanningCalendarView from '../views/PlanningCalendarView.vue'
+import ManualSchedulingView from '../views/ManualSchedulingView.vue'
+import AllCalendarView from '../views/AllCalendarView.vue'
+import PreferencesView from '../views/PreferencesView.vue'
+import MessagesView from '../views/MessagesView.vue'
 import { supabase } from '../config/supabase.js'
 
-// TESTMODUS:
-// true nur bei lokaler Entwicklung mit npm run dev
-// false beim Produktions-Build
-const TEST_MODE = import.meta.env.DEV
+const protectedRoute = { requiresAuth: true }
+const employeeRoute = { requiresAuth: true, employeeOnly: true }
 
 const routes = [
-    {
-        path: '/',
-        name: 'login',
-        component: LoginView
-    },
-    {
-        path: '/home',
-        name: 'home',
-        component: HomeView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/antraege',
-        name: 'antraege',
-        component: AntraegeView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/kontakt',
-        name: 'kontakt',
-        component: KontaktView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/anweisungen',
-        name: 'anweisungen',
-        component: AnweisungenView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/profile',
-        name: 'profile',
-        component: ProfileView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/gehalt',
-        name: 'gehalt',
-        component: GehaltsAbrechnungView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/ausruestung',
-        name: 'ausruestung',
-        component: EquipmentView,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/:pathMatch(.*)*',
-        redirect: '/'
-    }
+  { path: '/', name: 'login', component: LoginView },
+  { path: '/home', name: 'home', component: DashboardView, meta: employeeRoute },
+  { path: '/antraege', name: 'antraege', component: RequestsView, meta: employeeRoute },
+  { path: '/ausruestung', name: 'ausruestung', component: EquipmentView, meta: protectedRoute },
+  { path: '/anweisungen', name: 'anweisungen', component: DocumentsView, meta: employeeRoute },
+  { path: '/kontakt', name: 'kontakt', component: ContactView, meta: employeeRoute },
+  { path: '/gehalt', name: 'gehalt', component: PayslipsView, meta: protectedRoute },
+  { path: '/praeferenzen', name: 'praeferenzen', component: PreferencesView, meta: protectedRoute },
+  { path: '/nachrichten', name: 'nachrichten', component: MessagesView, meta: protectedRoute },
+  { path: '/profile', name: 'profile', component: ProfileSettingsView, meta: protectedRoute },
+  { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/admin/dienstplanung', name: 'manual-scheduling', component: ManualSchedulingView, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/admin/ki-dienstplanung', name: 'ai-scheduling', component: PlanningCalendarView, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/admin/kalender', name: 'all-calendar', component: AllCalendarView, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/:pathMatch(.*)*', redirect: { name: 'login' } }
 ]
 
 const router = createRouter({
-    history: createWebHashHistory(),
-    routes,
-    scrollBehavior: () => ({ top: 0 })
+  history: createWebHashHistory(),
+  routes,
+  scrollBehavior: (_to, _from, savedPosition) => savedPosition || { top: 0 }
 })
 
-// =====================================
-// AUTH GUARD
-// =====================================
-
 router.beforeEach(async (to) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = session ? await supabase.auth.getUser() : { data: { user: null } }
+  let isAdmin = user?.app_metadata?.role === 'admin'
+  // Fall back to the protected profile row. This keeps routing correct for
+  // sessions that were created before the role was written to Auth metadata.
+  if (user && !isAdmin) {
+    const { data: profile } = await supabase.from('app_users').select('role').eq('id', user.id).maybeSingle()
+    isAdmin = profile?.role === 'admin'
+  }
 
-    // Lokaler Testmodus ohne Login
-    if (TEST_MODE) {
-        if (to.name === 'login') {
-            return { name: 'home' }
-        }
+  if (to.meta.requiresAuth && !session) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
 
-        return true
-    }
+  if (to.meta.requiresAdmin && !isAdmin) return { name: 'home' }
+  if (to.meta.employeeOnly && isAdmin) return { name: 'admin' }
 
-    // Normale Supabase-Authentifizierung
-    const {
-        data: { session }
-    } = await supabase.auth.getSession()
+  if (to.name === 'login' && session) return { name: isAdmin ? 'admin' : 'home' }
+  if (to.name === 'home' && isAdmin) return { name: 'admin' }
 
-    if (to.meta.requiresAuth && !session) {
-        return {
-            name: 'login',
-            query: { redirect: to.fullPath }
-        }
-    }
-
-    if (to.name === 'login' && session) {
-        return { name: 'home' }
-    }
-
-    return true
+  return true
 })
 
 export default router

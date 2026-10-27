@@ -1,14 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
-const fallbackUrl = 'https://jbnxpqovdielnvjpijva.supabase.co'
-const fallbackKey = 'sb_publishable_qav5iYo8ENePdLedfwihMw_Mt6vzjEo'
+const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
+const configuredKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
 
-// VITE_* values are set in .env.local and override the old project values.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || fallbackUrl
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || fallbackKey
+// Vite only injects VITE_* values at build time. In particular, Vercel needs
+// the same two values in its project environment settings as local development.
+export const hasCustomSupabaseConfig = Boolean(configuredUrl && configuredKey)
 
-export const hasCustomSupabaseConfig = Boolean(
-  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-)
+// Do not silently send production logins to a retired project when a hosting
+// environment is not configured. The placeholder only allows the UI to render
+// its setup message; no credentials are sent to it.
+const supabaseUrl = configuredUrl || 'https://supabase-not-configured.invalid'
+const supabaseKey = configuredKey || 'not-configured-public-key'
 
 export const supabase = createClient(supabaseUrl, supabaseKey)

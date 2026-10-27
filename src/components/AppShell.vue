@@ -1,11 +1,11 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'app-shell--admin': isAdmin }">
     <aside class="sidebar" :class="{ 'sidebar--open': menuOpen }" aria-label="Hauptnavigation">
-      <router-link to="/home" class="brand" @click="closeMenu">
-        <span class="brand-mark"><i class="fa-solid fa-calendar-check"></i></span>
+      <router-link :to="homeRoute" class="brand" @click="closeMenu">
+        <span class="brand-mark"><i class="fa-solid" :class="isAdmin ? 'fa-shield-halved' : 'fa-calendar-check'"></i></span>
         <span>
-          <strong>Dienstplan</strong>
-          <small>Mein Portal</small>
+          <strong>{{ isAdmin ? 'Admin-Zentrale' : 'Dienstplan' }}</strong>
+          <small>{{ isAdmin ? 'Verwaltung' : 'Mein Portal' }}</small>
         </span>
       </router-link>
 
@@ -23,12 +23,12 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="sidebar-hint"><i class="fa-solid fa-shield-heart"></i><span>Dein Portal ist geschützt.</span></div>
+        <div class="sidebar-hint"><i class="fa-solid fa-shield-heart"></i><span>{{ isAdmin ? 'Verwaltungszugriff aktiv.' : 'Dein Portal ist geschützt.' }}</span></div>
         <router-link to="/profile" class="account-link" @click="closeMenu">
           <span class="avatar">{{ initials }}</span>
           <span class="account-copy">
             <strong>{{ userName }}</strong>
-            <small>Mein Profil</small>
+            <small>{{ isAdmin ? 'Admin Profil' : 'Mein Profil' }}</small>
           </span>
           <i class="fa-solid fa-chevron-right"></i>
         </router-link>
@@ -43,7 +43,7 @@
 
     <div class="app-shell__body">
       <header class="desktop-topbar">
-        <div class="topbar-context"><span class="topbar-dot"></span><span>Mein Mitarbeiterportal</span></div>
+        <div class="topbar-context"><span class="topbar-dot"></span><span>{{ isAdmin ? 'Admin-Zentrale · Verwaltung' : 'Mein Mitarbeiterportal' }}</span></div>
         <div class="topbar-actions">
           <button class="theme-button" type="button" :title="isLightTheme ? 'Dunkles Design aktivieren' : 'Helles Design aktivieren'" @click="toggleTheme">
             <i class="fa-solid" :class="isLightTheme ? 'fa-moon' : 'fa-sun'"></i>
@@ -53,9 +53,9 @@
         </div>
       </header>
       <header class="mobile-topbar">
-        <router-link to="/home" class="mobile-brand" aria-label="Zur Dienstplan-Übersicht">
-          <span class="brand-mark"><i class="fa-solid fa-calendar-check"></i></span>
-          <strong>Dienstplan</strong>
+        <router-link :to="homeRoute" class="mobile-brand" :aria-label="isAdmin ? 'Zur Admin-Zentrale' : 'Zur Dienstplan-Übersicht'">
+          <span class="brand-mark"><i class="fa-solid" :class="isAdmin ? 'fa-shield-halved' : 'fa-calendar-check'"></i></span>
+          <strong>{{ isAdmin ? 'Admin-Zentrale' : 'Dienstplan' }}</strong>
         </router-link>
         <div class="mobile-actions"><button class="mobile-theme-button" type="button" :aria-label="isLightTheme ? 'Dunkles Design aktivieren' : 'Helles Design aktivieren'" @click="toggleTheme"><i class="fa-solid" :class="isLightTheme ? 'fa-moon' : 'fa-sun'"></i></button><NotificationBell /><button class="menu-button" type="button" :aria-expanded="menuOpen" aria-label="Menü öffnen" @click="menuOpen = !menuOpen"><i class="fa-solid" :class="menuOpen ? 'fa-xmark' : 'fa-bars'"></i></button></div>
       </header>
@@ -92,10 +92,10 @@ defineProps({
 
 const router = useRouter()
 const menuOpen = ref(false)
-const { userName } = useCurrentUser()
+const { userName, isAdmin } = useCurrentUser()
 const { isLightTheme, toggleTheme } = useTheme()
 
-const navigation = [
+const employeeNavigation = [
   { label: 'Planung', items: [
     { to: '/home', label: 'Smart-Kalender', icon: 'fa-calendar-days' },
     { to: '/antraege', label: 'Meine Anträge', icon: 'fa-file-circle-plus' }
@@ -107,9 +107,32 @@ const navigation = [
   ] },
   { label: 'Persönlich', items: [
     { to: '/gehalt', label: 'Abrechnungen', icon: 'fa-receipt' },
+    { to: '/nachrichten', label: 'Nachrichten', icon: 'fa-paper-plane' },
+    { to: '/praeferenzen', label: 'Meine Präferenzen', icon: 'fa-sliders' },
     { to: '/profile', label: 'Profil & Einstellungen', icon: 'fa-user-gear' }
   ] }
 ]
+
+const adminNavigation = [
+  { label: 'Admin-Zentrale', items: [
+    { to: '/admin', label: 'Übersicht', icon: 'fa-shield-halved' },
+    { to: '/admin/kalender', label: 'Alle Kalender', icon: 'fa-calendar-days' },
+    { to: '/admin/dienstplanung', label: 'Dienstplanung', icon: 'fa-calendar-plus' },
+    { to: '/admin/ki-dienstplanung', label: 'KI-Dienstplanung', icon: 'fa-wand-magic-sparkles' }
+  ] },
+  { label: 'Personal', items: [
+    { to: '/praeferenzen', label: 'Präferenzen', icon: 'fa-sliders' },
+    { to: '/nachrichten', label: 'Nachrichten', icon: 'fa-paper-plane' },
+    { to: '/gehalt', label: 'Lohnzettel', icon: 'fa-file-invoice-dollar' }
+  ] },
+  { label: 'Betrieb', items: [
+    { to: '/ausruestung', label: 'Ausrüstung', icon: 'fa-toolbox' },
+    { to: '/profile', label: 'Admin Profil', icon: 'fa-user-gear' }
+  ] }
+]
+
+const navigation = computed(() => isAdmin.value ? adminNavigation : employeeNavigation)
+const homeRoute = computed(() => isAdmin.value ? '/admin' : '/home')
 
 const initials = computed(() => userName.value
   .split(/\s+/)

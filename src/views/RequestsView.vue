@@ -6,7 +6,7 @@
         <p v-if="successMessage" class="alert alert--success"><i class="fa-solid fa-circle-check"></i>{{ successMessage }}</p>
         <p v-if="errorMessage" class="alert alert--error"><i class="fa-solid fa-circle-exclamation"></i>{{ errorMessage }}</p>
         <form class="request-form" @submit.prevent="submitRequest">
-          <label><span>Antragsart</span><select v-model="newRequest.type" required><option value="" disabled>Bitte auswählen</option><option value="Erholungsurlaub">Erholungsurlaub</option><option value="Zeitausgleich">Zeitausgleich</option><option value="Diensttausch">Diensttausch</option><option value="Sonderurlaub">Sonderurlaub</option></select></label>
+          <label><span>Antragsart</span><select v-model="newRequest.type" required><option value="" disabled>Bitte auswählen</option><option value="Erholungsurlaub">Erholungsurlaub</option><option value="Krankmeldung">Krankmeldung</option><option value="Zeitausgleich">Zeitausgleich</option><option value="Diensttausch">Diensttausch</option><option value="Sonderurlaub">Sonderurlaub</option></select></label>
           <div class="form-dates"><label><span>Von</span><input v-model="newRequest.startDate" type="date" required></label><label><span>Bis</span><input v-model="newRequest.endDate" type="date" required></label></div>
           <section v-if="isVacationRequest && newRequest.startDate && newRequest.endDate" class="smart-request-check" :class="`smart-request-check--${availability.status}`" aria-live="polite">
             <span class="smart-request-icon"><i class="fa-solid" :class="availabilityIcon"></i></span>

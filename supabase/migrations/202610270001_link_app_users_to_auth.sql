@@ -1,0 +1,4 @@
+-- The original project used a separate app_users.id and a plaintext password
+-- column. A new project uses auth.users.id as app_users.id from the start.
+-- This migration intentionally remains empty so existing migration histories
+-- can be applied to the new secure schema without a legacy password column.

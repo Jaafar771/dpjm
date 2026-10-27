@@ -43,7 +43,7 @@ Danach den Entwicklungsserver neu starten. Vite stellt diese Variable nur für d
 
 ## Supabase-Projektadresse
 
-Die bisher im Quellcode gespeicherte Supabase-Adresse ist nicht mehr erreichbar. Lege deshalb im Projektstamm zusätzlich `.env.local` an bzw. ergänze sie mit den aktuellen Werten aus **Supabase Dashboard → Settings → API**:
+Lege im Projektstamm zusätzlich `.env.local` an bzw. ergänze sie mit den aktuellen Werten aus **Supabase Dashboard → Settings → API**. Die Anwendung verbindet sich ausschließlich mit dieser Konfiguration und verwendet keinen alten Ersatz-Endpunkt:
 
 ```env
 VITE_SUPABASE_URL=https://dein-projekt-ref.supabase.co
@@ -51,3 +51,15 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_dein_key
 ```
 
 Danach den Entwicklungsserver vollständig neu starten. Ohne eine erreichbare Projekt-URL kann weder die E-Mail- noch die Benutzername-Anmeldung funktionieren.
+
+## Vercel-Bereitstellung
+
+`.env.local` wird nicht zu Vercel hochgeladen. Öffne deshalb in Vercel **Project → Settings → Environment Variables** und hinterlege für **Production**, **Preview** und **Development** dieselben Werte wie lokal:
+
+```env
+VITE_SUPABASE_URL=https://dein-projekt-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_dein_key
+VITE_OFFICE_EMAIL=dienstplan@deine-organisation.at
+```
+
+Danach die aktuelle Bereitstellung über **Deployments → Redeploy** neu erstellen. Vite übernimmt `VITE_*`-Variablen ausschließlich während des Builds. Die App zeigt deshalb eine konkrete Einrichtungs-Meldung an, statt sich still mit dem alten Supabase-Projekt zu verbinden.
