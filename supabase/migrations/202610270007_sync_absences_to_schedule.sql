@@ -40,6 +40,7 @@ begin
       0,
       false,
       true,
+      true,
       new.id
     from generate_series(new.start_date, new.end_date, interval '1 day') as calendar_day;
   end if;
@@ -66,6 +67,7 @@ select
   case when request_row.request_type = 'Krankmeldung' then 'KRANK' else 'URLAUB' end,
   0,
   false,
+  true,
   true,
   request_row.id
 from public.employee_requests as request_row
