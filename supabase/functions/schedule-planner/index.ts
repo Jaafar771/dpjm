@@ -234,67 +234,84 @@ export default {
           for (let date = absence.start_date; date <= absence.end_date; date = plusDays(date, 1)) unavailable.get(absence.user_id)!.add(date);
         }
 
-        const assignmentsByEmployee = new Map<string, Assignment[]>();
-        const hoursByEmployee = new Map<string, number>();
-        const weeklyByEmployee = new Map<string, number>();
-        for (const employee of pool) {
-          const rows = existing.filter((assignment) => assignment.user_id === employee.id);
-          assignmentsByEmployee.set(employee.id, [...rows]);
-          hoursByEmployee.set(employee.id, rows.reduce((total, assignment) => total + Number(assignment.hours || 0), 0));
-          for (const assignment of rows) {
-            const key = `${employee.id}|${isoWeek(assignment.date)}`;
-            weeklyByEmployee.set(key, (weeklyByEmployee.get(key) || 0) + 1);
-          }
-        }
-
-        const slots = buildSlots(dateList, locations);
-        const generated: Assignment[] = [];
-        const unassigned: Slot[] = [];
-
-        for (const slot of slots) {
-          const weekday = parseDay(slot.date).getUTCDay();
-          const candidates = pool.flatMap((employee) => {
-            const assignments = assignmentsByEmployee.get(employee.id) || [];
-            const preference = preferenceByUser.get(employee.id);
-            const maxHours = preference?.max_monthly_hours || 204;
-            const currentHours = hoursByEmployee.get(employee.id) || 0;
-            const currentWeek = weeklyByEmployee.get(`${employee.id}|${isoWeek(slot.date)}`) || 0;
-            const hadNightRecently = slot.shift_type === "TD" && assignments.some((assignment) =>
-              assignment.shift_type === "ND" && (assignment.date === plusDays(slot.date, -1) || assignment.date === plusDays(slot.date, -2))
-            );
-
-            if (unavailable.get(employee.id)?.has(slot.date)) return [];
-            if (assignments.some((assignment) => assignment.date === slot.date)) return [];
-            if (currentHours + slot.hours > maxHours) return [];
-            if (currentWeek >= 4) return [];
-            if (hadNightRecently) return [];
-            let score = 0;
-            const preferredLocations = (preference?.preferred_locations || []).map(normalize);
-            const preferredShifts = (preference?.preferred_shifts || []).map(normalize);
-            if (preferredLocations.includes(normalize(slot.ort))) score += 80;
-            if (preferredShifts.includes(normalize(slot.shift_type))) score += 36;
-            if ((preference?.avoid_weekdays || []).includes(weekday)) score -= 52;
-            score -= (currentHours / maxHours) * 90;
-            score -= currentWeek * 18;
-            score -= assignments.length * 2;
-            score += Math.random() * 4;
-            return [{ employee, score }];
-          }).sort((a, b) => b.score - a.score);
-
-          const candidate = candidates[0];
-          if (!candidate) {
-            unassigned.push(slot);
-            continue;
+        // Assigning chronologically and in one pass can trap the last days of a
+        // month, even though a valid roster exists. Day shifts go first because
+        // nights affect the following two day shifts. Several balanced passes
+        // retain every hard rule and select the best complete solution.
+        const slots = buildSlots(dateList, locations).sort((left, right) =>
+          left.date.localeCompare(right.date) || Number(left.is_night) - Number(right.is_night)
+        );
+        const buildPlanAttempt = () => {
+          const assignmentsByEmployee = new Map<string, Assignment[]>();
+          const hoursByEmployee = new Map<string, number>();
+          const weeklyByEmployee = new Map<string, number>();
+          for (const employee of pool) {
+            const rows = existing.filter((assignment) => assignment.user_id === employee.id);
+            assignmentsByEmployee.set(employee.id, [...rows]);
+            hoursByEmployee.set(employee.id, rows.reduce((total, assignment) => total + Number(assignment.hours || 0), 0));
+            for (const assignment of rows) {
+              const key = `${employee.id}|${isoWeek(assignment.date)}`;
+              weeklyByEmployee.set(key, (weeklyByEmployee.get(key) || 0) + 1);
+            }
           }
 
-          const { id: _slotId, ...assignmentFields } = slot;
-          const assignment: Assignment = { ...assignmentFields, user_id: candidate.employee.id };
-          generated.push(assignment);
-          assignmentsByEmployee.get(candidate.employee.id)!.push(assignment);
-          hoursByEmployee.set(candidate.employee.id, (hoursByEmployee.get(candidate.employee.id) || 0) + slot.hours);
-          const weekKey = `${candidate.employee.id}|${isoWeek(slot.date)}`;
-          weeklyByEmployee.set(weekKey, (weeklyByEmployee.get(weekKey) || 0) + 1);
+          const generated: Assignment[] = [];
+          const unassigned: Slot[] = [];
+          for (const slot of slots) {
+            const weekday = parseDay(slot.date).getUTCDay();
+            const candidates = pool.flatMap((employee) => {
+              const assignments = assignmentsByEmployee.get(employee.id) || [];
+              const preference = preferenceByUser.get(employee.id);
+              const maxHours = preference?.max_monthly_hours || 204;
+              const currentHours = hoursByEmployee.get(employee.id) || 0;
+              const currentWeek = weeklyByEmployee.get(`${employee.id}|${isoWeek(slot.date)}`) || 0;
+              const hadNightRecently = slot.shift_type === "TD" && assignments.some((assignment) =>
+                assignment.shift_type === "ND" && (assignment.date === plusDays(slot.date, -1) || assignment.date === plusDays(slot.date, -2))
+              );
+
+              if (unavailable.get(employee.id)?.has(slot.date)) return [];
+              if (assignments.some((assignment) => assignment.date === slot.date)) return [];
+              if (currentHours + slot.hours > maxHours) return [];
+              if (currentWeek >= 4) return [];
+              if (hadNightRecently) return [];
+
+              let score = 0;
+              const preferredLocations = (preference?.preferred_locations || []).map(normalize);
+              const preferredShifts = (preference?.preferred_shifts || []).map(normalize);
+              if (preferredLocations.includes(normalize(slot.ort))) score += 80;
+              if (preferredShifts.includes(normalize(slot.shift_type))) score += 36;
+              if ((preference?.avoid_weekdays || []).includes(weekday)) score -= 52;
+              score -= (currentHours / maxHours) * 120;
+              score -= currentWeek * 25;
+              score -= assignments.length * 3;
+              // Controlled variation lets later attempts escape the same local choice.
+              score += Math.random() * 28;
+              return [{ employee, score }];
+            }).sort((a, b) => b.score - a.score);
+
+            const candidate = candidates[0];
+            if (!candidate) {
+              unassigned.push(slot);
+              continue;
+            }
+
+            const { id: _slotId, ...assignmentFields } = slot;
+            const assignment: Assignment = { ...assignmentFields, user_id: candidate.employee.id };
+            generated.push(assignment);
+            assignmentsByEmployee.get(candidate.employee.id)!.push(assignment);
+            hoursByEmployee.set(candidate.employee.id, (hoursByEmployee.get(candidate.employee.id) || 0) + slot.hours);
+            const weekKey = `${candidate.employee.id}|${isoWeek(slot.date)}`;
+            weeklyByEmployee.set(weekKey, (weeklyByEmployee.get(weekKey) || 0) + 1);
+          }
+          return { generated, unassigned, assignmentsByEmployee, hoursByEmployee };
+        };
+
+        let bestPlan = buildPlanAttempt();
+        for (let attempt = 1; attempt < 160 && bestPlan.unassigned.length; attempt += 1) {
+          const nextPlan = buildPlanAttempt();
+          if (nextPlan.unassigned.length < bestPlan.unassigned.length) bestPlan = nextPlan;
         }
+        const { generated, unassigned, assignmentsByEmployee, hoursByEmployee } = bestPlan;
 
         if (unassigned.length) {
           return respond({

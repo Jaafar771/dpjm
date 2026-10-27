@@ -13,7 +13,7 @@
         <p v-if="plannerMessage" class="planner-message" :class="plannerMessage.type"><i class="fa-solid" :class="plannerMessage.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>{{ plannerMessage.text }}</p>
         <div class="planner-form">
           <label><span>Planungsort</span><select v-model="planningLocation"><option v-for="location in locations" :key="location.id" :value="location.name">{{ location.name }}</option></select></label>
-          <div class="team-heading"><div><span>Planungsteam</span><small>{{ selectedEmployeeIds.length }} Mitarbeiter ausgewählt<template v-if="planningLocation === 'Pav20'"> · empfohlen: 11</template></small></div><div><button type="button" @click="selectRecommendedTeam">Empfohlene Auswahl</button><button type="button" @click="selectAllEmployees">Alle</button></div></div>
+          <div class="team-heading"><div><span>Planungsteam</span><small>{{ selectedEmployeeIds.length }} Mitarbeiter ausgewählt<template v-if="planningLocation === 'Pav20'"> · empfohlen: 12</template></small></div><div><button type="button" @click="selectRecommendedTeam">Empfohlene Auswahl</button><button type="button" @click="selectAllEmployees">Alle</button></div></div>
           <div class="employee-picker"><label v-for="employee in employees" :key="employee.id" class="employee-option"><input v-model="selectedEmployeeIds" type="checkbox" :value="employee.id"><span>{{ initials(employee.name) }}</span><strong>{{ employee.name }}</strong><small>{{ preferenceSummary(employee.id) }}</small></label></div>
           <button class="primary-button" type="button" :disabled="isGenerating || !planningLocation || !selectedEmployeeIds.length" @click="generateSchedule"><i class="fa-solid" :class="isGenerating ? 'fa-spinner fa-spin' : 'fa-calendar-plus'"></i>{{ isGenerating ? 'Plan wird geprüft …' : 'Dienstplan erstellen' }}</button>
         </div>
@@ -95,9 +95,9 @@ const loadCalendar = async () => {
   } finally { isLoading.value = false }
 }
 
-// Pav20 benötigt für seine 24/7-Besetzung mindestens elf Personen. Die empfohlene
-// Auswahl bleibt deshalb bewusst bei 11 statt unnötig zwölf Personen einzuplanen.
-const selectRecommendedTeam = () => { selectedEmployeeIds.value = employees.value.slice(0, planningLocation.value === 'Pav20' ? 11 : employees.value.length).map((employee) => employee.id) }
+// Für Pav20 werden zwölf Mitarbeitende empfohlen. Das schafft Reserve für
+// Abwesenheiten und hält die 24/7-Besetzung trotz der Ruhezeiten stabil.
+const selectRecommendedTeam = () => { selectedEmployeeIds.value = employees.value.slice(0, planningLocation.value === 'Pav20' ? 12 : employees.value.length).map((employee) => employee.id) }
 const selectAllEmployees = () => { selectedEmployeeIds.value = employees.value.map((employee) => employee.id) }
 
 const saveLocation = async (location) => {
