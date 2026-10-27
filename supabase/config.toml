@@ -1,0 +1,4 @@
+[functions.login-by-username]
+# The function receives username/password itself and establishes the Supabase session.
+# It must accept the unauthenticated login request and its CORS preflight request.
+verify_jwt = false
